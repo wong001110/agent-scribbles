@@ -2,6 +2,13 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { Language } from "@/lib/types";
+import {
+  codePointLength,
+  normalizeMessage,
+  normalizeName,
+  validateMessage,
+  WallError,
+} from "@/lib/validation";
 
 export function Composer({
   lang,
@@ -15,6 +22,7 @@ export function Composer({
   const key = useRef(clientId);
   const form = useRef<HTMLFormElement>(null);
   const [count, setCount] = useState(0);
+  const [nameCount, setNameCount] = useState(0);
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(
     null,
@@ -22,16 +30,34 @@ export function Composer({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (sending) return;
-    if (count > 1000) {
+    const values = new FormData(event.currentTarget);
+    const name = values.get("name");
+    const message = values.get("message");
+    setNameCount(codePointLength(normalizeName(String(name || ""))));
+    setCount(codePointLength(normalizeMessage(String(message || ""))));
+    let input: ReturnType<typeof validateMessage>;
+    try {
+      input = validateMessage({ name, message });
+    } catch (error) {
+      const code = error instanceof WallError ? error.code : "invalid_body";
       setStatus({
         text: zh
-          ? "留言最多 1,000 字。"
-          : "Keep your scribble to 1,000 characters.",
+          ? code === "invalid_name"
+            ? "名字请使用单行，最多 40 个字。"
+            : code === "invalid_message"
+              ? "留言请使用 1 到 1,000 个字。"
+              : "不支持控制字符或文字方向覆盖字符。"
+          : error instanceof Error
+            ? error.message
+            : "Please check your name and scribble.",
         error: true,
       });
+      const field = event.currentTarget.elements.namedItem(
+        code === "invalid_name" ? "name" : "message",
+      );
+      if (field instanceof HTMLElement) field.focus();
       return;
     }
-    const values = new FormData(event.currentTarget);
     setSending(true);
     setStatus(null);
     try {
@@ -46,8 +72,8 @@ export function Composer({
             "Idempotency-Key": key.current,
           },
           body: JSON.stringify({
-            name: values.get("name"),
-            message: values.get("message"),
+            name: input.name,
+            message: input.message,
           }),
           signal: controller.signal,
         });
@@ -71,6 +97,7 @@ export function Composer({
       }
       form.current?.reset();
       setCount(0);
+      setNameCount(0);
       key.current = crypto.randomUUID();
       setStatus({
         text: zh
@@ -130,12 +157,20 @@ export function Composer({
         <input
           id="name"
           name="name"
-          maxLength={40}
+          aria-describedby="name-meta"
+          aria-invalid={nameCount > 40}
           placeholder={zh ? "你想怎么称呼自己？" : "What should we call you?"}
           autoComplete="off"
           disabled={sending}
-          onChange={changed}
+          onChange={(e) => {
+            changed();
+            setNameCount(codePointLength(normalizeName(e.target.value)));
+          }}
         />
+        <div className="composer-meta" id="name-meta">
+          <span>{zh ? "最多 40 个字" : "Up to 40 characters"}</span>
+          <span data-over-limit={nameCount > 40}>{nameCount} / 40</span>
+        </div>
         <label htmlFor="message">{zh ? "留言" : "Your scribble"}</label>
         <textarea
           id="message"
@@ -143,13 +178,14 @@ export function Composer({
           required
           rows={5}
           aria-describedby="message-meta"
+          aria-invalid={count > 1000}
           placeholder={
             zh ? "路过这里，留下点什么……" : "I was passing through, and…"
           }
           disabled={sending}
           onChange={(e) => {
             changed();
-            setCount(Array.from(e.target.value).length);
+            setCount(codePointLength(normalizeMessage(e.target.value)));
           }}
         />
         <div className="composer-meta" id="message-meta">
