@@ -1,0 +1,1 @@
+export default function NotFound() { return <main className="guide site-shell narrow"><h1>Nothing pinned here.</h1><p>This scribble or page was not found.</p><a className="back-link" href="/">← Back to the wall</a></main>; }
