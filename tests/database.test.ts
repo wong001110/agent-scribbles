@@ -8,6 +8,10 @@ import {
   writeMessage,
   clientHash,
 } from "../src/lib/db";
+import { GET as sitemapIndex } from "../src/app/sitemap.xml/route";
+import { GET as sitemapPage } from "../src/app/[sitemap]/route";
+import { GET as feed } from "../src/app/feed.md/route";
+import { verifyDiscoveryHtml } from "./http-discovery";
 import { testDatabaseUrl } from "../scripts/test-database";
 import { WallError, validateMessage } from "../src/lib/validation";
 
@@ -45,7 +49,7 @@ test(
   { skip: process.env.RUN_DB_TESTS !== "true" },
   async () => {
     process.env.DATABASE_URL = testDatabaseUrl(process.env.TEST_DATABASE_URL);
-    const marker = randomUUID();
+    const marker = `fixture<&"${randomUUID().slice(0, 20)}`;
     const source = randomUUID();
     try {
       const body = {
@@ -73,7 +77,7 @@ test(
         randomUUID(),
       );
       const third = await writeMessage(
-        { name: marker, message: "Third" },
+        { name: marker, message: 'Third <script>alert("x&y")</script> & "quoted" 雪' },
         source,
         randomUUID(),
       );
@@ -100,6 +104,44 @@ test(
         "Public messages exclude internal hashes",
       );
       assert.equal(await readMessage(randomUUID()), null);
+      const indexResponse = await sitemapIndex();
+      assert.equal(indexResponse.status, 200);
+      assert.match(indexResponse.headers.get("Content-Type")!, /application\/xml/);
+      assert.match(await indexResponse.text(), /\/sitemap-0\.xml<\/loc>/);
+      const sitemap = await sitemapPage(new Request("http://localhost/sitemap-0.xml"), { params: Promise.resolve({ sitemap: "sitemap-0.xml" }) });
+      const xml = await sitemap.text();
+      assert.ok(xml.includes(`/messages/${third.message.id}</loc><lastmod>${third.message.created_at}</lastmod>`));
+      assert.ok(!xml.includes("?lang="));
+      assert.equal((await sitemapPage(new Request("http://localhost"), { params: Promise.resolve({ sitemap: "sitemap-9999.xml" }) })).status, 404);
+      const textFeed = await feed();
+      assert.match(textFeed.headers.get("Content-Type")!, /text\/plain/);
+      assert.match(textFeed.headers.get("Link")!, /rel="alternate"/);
+      assert.ok((await textFeed.text()).includes(third.message.id));
+      await verifyDiscoveryHtml(third.message);
+      // Cross the actual 5,000-message boundary in the disposable database.
+      await pool().query(
+        "INSERT INTO scribbles(id,name,message,ip_hash,payload_hash,created_at) SELECT gen_random_uuid(),$1,'Shard fixture',$2,'test-only-fixture',timestamptz '2000-01-01' + g * interval '1 second' FROM generate_series(1,5001) g",
+        [marker, source],
+      );
+      const expected = (await pool().query("SELECT id FROM scribbles ORDER BY created_at ASC,id ASC")).rows.map((row) => row.id);
+      const shardIds: string[][] = [];
+      for (const page of [0, 1]) {
+        const response = await sitemapPage(new Request(`http://localhost/sitemap-${page}.xml`), { params: Promise.resolve({ sitemap: `sitemap-${page}.xml` }) });
+        assert.equal(response.status, 200);
+        const shardXml = await response.text();
+        shardIds.push(Array.from(shardXml.matchAll(/<loc>[^<]+\/messages\/([^<]+)<\/loc>/g), (match) => match[1]));
+        assert.equal((shardXml.match(/<url>/g) || []).length, page === 0 ? 5002 : expected.length - 5000);
+      }
+      assert.equal(shardIds[0].length, 5000);
+      assert.deepEqual(shardIds.flat(), expected, "Every stored permalink occurs once, across the boundary in stable order");
+      assert.equal(new Set(shardIds.flat()).size, expected.length);
+      const indexXml = await (await sitemapIndex()).text();
+      assert.match(indexXml, /\/sitemap-0\.xml<\/loc>/);
+      assert.match(indexXml, /\/sitemap-1\.xml<\/loc>/);
+      assert.ok(!indexXml.includes("/sitemaps/"));
+      assert.equal((await sitemapPage(new Request("http://localhost/sitemap-2.xml"), { params: Promise.resolve({ sitemap: "sitemap-2.xml" }) })).status, 404);
+
+
     } finally {
       await pool().query("DELETE FROM scribbles WHERE name=$1", [marker]);
       await pool().query("DELETE FROM write_limits WHERE bucket_key=$1", [

@@ -16,6 +16,11 @@ export const metadata: Metadata = {
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="describedby" href="/llms.txt" type="text/plain" />
+        <link rel="service-desc" href="/openapi.json" type="application/json" />
+        <link rel="alternate" href="/feed.md" type="text/plain" title="Latest scribbles" />
+      </head>
       <body>{children}</body>
     </html>
   );
