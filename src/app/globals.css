@@ -57,6 +57,7 @@ button:disabled {
   gap: 24px;
 }
 .brand {
+  white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -77,6 +78,7 @@ nav {
   gap: 36px;
 }
 nav > a {
+  white-space: nowrap;
   display: flex;
   gap: 12px;
   font-size: 13px;
@@ -86,6 +88,7 @@ nav > a:hover,
   color: var(--accent);
 }
 .language {
+  white-space: nowrap;
   display: flex;
   gap: 9px;
   font-size: 12px;
@@ -732,7 +735,7 @@ pre {
     display: none;
   }
   .brand {
-    font-size: 16px;
+    font-size: 15px;
   }
   .empty-wall h3 {
     font-size: 25px;
