@@ -2,8 +2,11 @@ import { pool } from "@/lib/db";
 import { sitemapEntries, sitemapPageSize, xmlEscape } from "@/lib/sitemap";
 import { failure } from "@/lib/http";
 export const dynamic = "force-dynamic";
-export async function GET(_request: Request, { params }: { params: Promise<{ page: string }> }) {
-  const { page } = await params;
+export async function GET(_request: Request, { params }: { params: Promise<{ sitemap: string }> }) {
+  const { sitemap } = await params;
+  const match = /^sitemap-(0|[1-9]\d*)\.xml$/.exec(sitemap);
+  if (!match) return new Response(null, { status: 404 });
+  const page = match[1];
   if (!/^(0|[1-9]\d*)$/.test(page) || !Number.isSafeInteger(Number(page)) || Number(page) > Math.floor(Number.MAX_SAFE_INTEGER / sitemapPageSize)) return new Response(null, { status: 404 });
   try {
     const result = await pool().query("SELECT id,created_at FROM scribbles ORDER BY created_at ASC,id ASC LIMIT $1 OFFSET $2", [sitemapPageSize, Number(page) * sitemapPageSize]);
