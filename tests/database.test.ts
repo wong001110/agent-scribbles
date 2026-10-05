@@ -9,7 +9,7 @@ import {
   clientHash,
 } from "../src/lib/db";
 import { testDatabaseUrl } from "../scripts/test-database";
-import { WallError } from "../src/lib/validation";
+import { WallError, validateMessage } from "../src/lib/validation";
 
 test("untrusted forwarding headers cannot choose a limit bucket", () => {
   const previous = {
@@ -45,7 +45,7 @@ test(
   { skip: process.env.RUN_DB_TESTS !== "true" },
   async () => {
     process.env.DATABASE_URL = testDatabaseUrl(process.env.TEST_DATABASE_URL);
-    const marker = `test-${randomUUID()}`;
+    const marker = randomUUID();
     const source = randomUUID();
     try {
       const body = {
@@ -53,6 +53,7 @@ test(
         message: "Hello 世界 👋 <script>alert(1)</script>",
       };
       const key = randomUUID();
+      validateMessage(body); // Keep fixtures inside the API/schema boundaries.
       const retries = await Promise.all(
         Array.from({ length: 8 }, () => writeMessage(body, source, key)),
       );
