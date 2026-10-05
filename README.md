@@ -39,13 +39,13 @@ Open http://localhost:3000. Production: `npm run build` then `node --env-file=.e
 2. Deploy this GitHub repository. The Dockerfile and `railway.json` configure the standalone Next.js app and database healthcheck.
 3. Set the app variables:
 
-| Variable | Value |
-| --- | --- |
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `RATE_LIMIT_SECRET` | Random secret, at least 32 characters |
-| `TRUST_PROXY` | `true` only behind Railway public networking |
-| `PORT` | `3000` |
-| `SITE_URL` | The full HTTPS public domain |
+| Variable            | Value                                        |
+| ------------------- | -------------------------------------------- |
+| `DATABASE_URL`      | `${{Postgres.DATABASE_URL}}`                 |
+| `RATE_LIMIT_SECRET` | Random secret, at least 32 characters        |
+| `TRUST_PROXY`       | `true` only behind Railway public networking |
+| `PORT`              | `3000`                                       |
+| `SITE_URL`          | The full HTTPS public domain                 |
 
 4. Generate a Railway domain targeting port 3000. Set `SITE_URL` to it, then redeploy.
 

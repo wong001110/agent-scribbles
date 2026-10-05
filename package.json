@@ -10,7 +10,9 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "migrate": "node scripts/migrate.mjs"
   },
-  "engines": { "node": ">=24 <25" },
+  "engines": {
+    "node": ">=24 <25"
+  },
   "dependencies": {
     "next": "16.3.8",
     "pg": "8.23.1",
