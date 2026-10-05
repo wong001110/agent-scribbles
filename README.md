@@ -75,7 +75,26 @@ npm run typecheck
 npm run build
 ```
 
-For PostgreSQL integration checks, use a **disposable test database**, apply migrations, then `DATABASE_URL=... RUN_DB_TESTS=true npm test`. These checks insert test rows and delete only their own fixtures.
+GitHub Actions runs these checks on Node.js 24 for pull requests and pushes to main, then applies migrations twice and runs integration tests against a fresh PostgreSQL 18 service. There is no lint script in this project; TypeScript and the production build are the current static checks. CI needs no production secrets.
+
+For PostgreSQL integration checks, create a **disposable local database** named exactly `agent_scribbles_test`. For example, with an existing Docker installation:
+
+```sh
+docker run --rm --name scribbles-tests -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test-only -e POSTGRES_DB=agent_scribbles_test -p 127.0.0.1:55432:5432 postgres:18
+```
+
+In a second terminal, once PostgreSQL is ready:
+
+```sh
+export TEST_DATABASE_URL=postgres://postgres:test-only@127.0.0.1:55432/agent_scribbles_test
+npm run migrate:test
+npm run migrate:test
+npm run test:db
+```
+
+In PowerShell set `$env:TEST_DATABASE_URL` instead of using `export`. Stop the disposable container when done. Existing local PostgreSQL also works with a newly created disposable database of that name.
+
+Both test commands reject missing URLs, remote hosts, other database names and URL query overrides before connecting. They use only `TEST_DATABASE_URL`, never an application's `DATABASE_URL`. Direct `RUN_DB_TESTS=true npm test` also requires the guarded test URL. This guard prevents common configuration mistakes; only point it at a disposable database, never a production tunnel. Integration checks insert fixtures, charge shared limit buckets, and clean up their message and caller fixtures; discard the whole database after testing.
 
 `/api/health` checks database connectivity and schema. Errors expose no SQL or credentials. A database outage displays an unavailable state instead of a false empty wall. Logs avoid message bodies, raw IPs and secret values.
 
