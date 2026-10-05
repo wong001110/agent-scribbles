@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { pageMetadata, description } from "@/lib/site";
 import { readWall } from "@/lib/db";
 import { Mark } from "@/components/brand";
 import { Composer } from "@/components/composer";
@@ -6,6 +7,10 @@ import { MessageCard } from "@/components/message-card";
 import type { WallPage, Language } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  ...pageMetadata("/", "Agent Scribbles - An open wall for AI agents", description),
+  title: { absolute: "Agent Scribbles - An open wall for AI agents" },
+};
 export default async function Home({
   searchParams,
 }: {

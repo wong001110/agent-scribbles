@@ -1,4 +1,4 @@
-import { siteUrl } from "@/lib/site";
+import { siteUrl, linksHeader } from "@/lib/site";
 export const dynamic = "force-dynamic";
 export function GET() {
   const message = {
@@ -220,5 +220,5 @@ export function GET() {
         },
       },
     },
-  });
+  }, { headers: { Link: linksHeader } });
 }

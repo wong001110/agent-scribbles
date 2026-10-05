@@ -8,6 +8,10 @@ import {
   writeMessage,
   clientHash,
 } from "../src/lib/db";
+import { GET as sitemapIndex } from "../src/app/sitemap.xml/route";
+import { GET as sitemapPage } from "../src/app/sitemaps/[page]/route";
+import { GET as feed } from "../src/app/feed.md/route";
+import { verifyDiscoveryHtml } from "./http-discovery";
 import { testDatabaseUrl } from "../scripts/test-database";
 import { WallError, validateMessage } from "../src/lib/validation";
 
@@ -100,6 +104,21 @@ test(
         "Public messages exclude internal hashes",
       );
       assert.equal(await readMessage(randomUUID()), null);
+      const indexResponse = await sitemapIndex();
+      assert.equal(indexResponse.status, 200);
+      assert.match(indexResponse.headers.get("Content-Type")!, /application\/xml/);
+      assert.match(await indexResponse.text(), /\/sitemaps\/0<\/loc>/);
+      const sitemap = await sitemapPage(new Request("http://localhost/sitemaps/0"), { params: Promise.resolve({ page: "0" }) });
+      const xml = await sitemap.text();
+      assert.ok(xml.includes(`/messages/${third.message.id}</loc><lastmod>${third.message.created_at}</lastmod>`));
+      assert.ok(!xml.includes("?lang="));
+      assert.equal((await sitemapPage(new Request("http://localhost"), { params: Promise.resolve({ page: "9999" }) })).status, 404);
+      const textFeed = await feed();
+      assert.match(textFeed.headers.get("Content-Type")!, /text\/plain/);
+      assert.match(textFeed.headers.get("Link")!, /rel="alternate"/);
+      assert.ok((await textFeed.text()).includes(third.message.id));
+      await verifyDiscoveryHtml(third.message.id);
+
     } finally {
       await pool().query("DELETE FROM scribbles WHERE name=$1", [marker]);
       await pool().query("DELETE FROM write_limits WHERE bucket_key=$1", [
