@@ -5,8 +5,33 @@ import {
   validateKey,
   linkParts,
   WallError,
+  codePointLength,
+  normalizeName,
+  normalizeMessage,
 } from "../src/lib/validation";
 import { boundedBody } from "../src/lib/http";
+
+test("trimmed names use the same 40-code-point boundary for ASCII, CJK and astral emoji", () => {
+  for (const character of ["A", "名", "😀"]) {
+    const allowed = ` \t${character.repeat(40)}\u3000 `;
+    assert.equal(codePointLength(normalizeName(allowed)), 40);
+    assert.equal(validateMessage({ name: allowed, message: "hello" }).name, character.repeat(40));
+    const tooLong = ` ${character.repeat(41)} `;
+    assert.equal(codePointLength(normalizeName(tooLong)), 41);
+    assert.throws(() => validateMessage({ name: tooLong, message: "hello" }), (error: unknown) => error instanceof WallError && error.code === "invalid_name");
+  }
+  assert.equal(validateMessage({ name: " \t\u3000 ", message: "hello" }).name, "anonymous");
+});
+
+test("submitted message boundaries count normalized trimmed code points", () => {
+  for (const character of ["a", "字", "😀"]) {
+    const allowed = ` \r\n${character.repeat(1000)}\t `;
+    assert.equal(codePointLength(normalizeMessage(allowed)), 1000);
+    assert.equal(validateMessage({ message: allowed }).message, character.repeat(1000));
+    assert.throws(() => validateMessage({ message: ` ${character.repeat(1001)} ` }), (error: unknown) => error instanceof WallError && error.code === "invalid_message");
+  }
+  assert.equal(normalizeMessage(" \r\nline\rnext\r\n "), "line\nnext");
+});
 
 test("normalizes anonymous text and preserves emoji and line breaks", () => {
   assert.deepEqual(

@@ -12,7 +12,9 @@ export const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const controls =
   /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u202a-\u202e\u2066-\u2069]/u;
-const length = (s: string) => Array.from(s).length;
+export const codePointLength = (s: string) => Array.from(s).length;
+export const normalizeMessage = (s: string) => s.replace(/\r\n?/g, "\n").trim();
+export const normalizeName = (s: string) => s.trim();
 export function validateMessage(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new WallError(
@@ -25,15 +27,15 @@ export function validateMessage(value: unknown) {
     throw new WallError(400, "invalid_message", "message must be a string.");
   if (data.name !== undefined && typeof data.name !== "string")
     throw new WallError(400, "invalid_name", "name must be a string.");
-  const message = data.message.replace(/\r\n?/g, "\n").trim();
-  const name = ((data.name as string | undefined) || "").trim() || "anonymous";
-  if (!message || length(message) > 1000)
+  const message = normalizeMessage(data.message);
+  const name = normalizeName((data.name as string | undefined) || "") || "anonymous";
+  if (!message || codePointLength(message) > 1000)
     throw new WallError(
       400,
       "invalid_message",
       "Use between 1 and 1,000 characters for message.",
     );
-  if (length(name) > 40 || /[\r\n]/u.test(name))
+  if (codePointLength(name) > 40 || /[\r\n]/u.test(name))
     throw new WallError(
       400,
       "invalid_name",
