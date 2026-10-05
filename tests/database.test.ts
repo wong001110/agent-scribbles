@@ -8,6 +8,7 @@ import {
   writeMessage,
   clientHash,
 } from "../src/lib/db";
+import { testDatabaseUrl } from "../scripts/test-database";
 import { WallError } from "../src/lib/validation";
 
 test("untrusted forwarding headers cannot choose a limit bucket", () => {
@@ -43,10 +44,7 @@ test(
   "PostgreSQL concurrent retries, limits, persistence and pagination",
   { skip: process.env.RUN_DB_TESTS !== "true" },
   async () => {
-    assert.ok(
-      process.env.DATABASE_URL,
-      "Use a disposable PostgreSQL test database with migrations applied.",
-    );
+    process.env.DATABASE_URL = testDatabaseUrl(process.env.TEST_DATABASE_URL);
     const marker = `test-${randomUUID()}`;
     const source = randomUUID();
     try {
